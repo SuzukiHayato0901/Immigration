@@ -2,13 +2,26 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using TMPro;
 
 /// <summary>
 /// ドラッグ可能なドキュメント（UI）を管理するクラス
 /// マウスでドラッグして移動でき、親要素の範囲外に出たら元の位置に戻る
 /// </summary>
-public class DocumentDraggable : MonoBehaviour, IBeginDragHandler, IEndDragHandler, IDragHandler
+public class DocumentDraggable : MonoBehaviour, IBeginDragHandler, IEndDragHandler, IDragHandler, IPointerDownHandler
 {
+    [Header("ドキュメントデータ")]
+    public DocumentDates Data;  // パスポートデータ（ScriptableObject）
+    public TextMeshProUGUI nameText;  // 名前を表示するテキスト
+    public TextMeshProUGUI counterText; // カウンター名を表示するテキスト
+    public TextMeshProUGUI idNameText; // 書類ID名を表示するテキスト
+    public TextMeshProUGUI expiryDateText; // 有効期限を表示するテキスト
+
+    [Header("エフェクト")]
+    public RectTransform shadowRect; // ドキュメントの影（ドラッグ中に表示）
+    public Vector2 shadowOffset = new Vector2(10f, -10f); // 影のオフセット
+    public Vector2 originalShadowPos; // 影の元の位置（ドラッグ終了後に戻すために保存）
+
     // ドラッグ開始時のドキュメント位置（範囲外判定用に保存）
     private Vector2 prevPos;
     
@@ -37,6 +50,58 @@ public class DocumentDraggable : MonoBehaviour, IBeginDragHandler, IEndDragHandl
         
         // Canvasの参照を取得（カメラの判定に使用）
         canvas = GetComponentInParent<Canvas>();
+
+        // 影の初期位置を保存
+        if(shadowRect != null)
+        {
+            // 影の元の位置を保存（ドラッグ終了後に戻すため）
+            originalShadowPos = shadowRect.anchoredPosition;
+        }
+
+        UpdateDocumentUI(); // ドキュメントデータをUIに反映
+    }
+
+    /// <summary>
+    /// ドキュメントデータをUIに反映するメソッド
+    /// </summary>
+    public void UpdateDocumentUI()
+    {
+        if(nameText != null && Data != null)
+        {
+            nameText.text = Data.personName;            // 所有者の名前を表示（DocumentDates.personName を使用）
+        }
+        if(counterText != null && Data != null)
+        {
+            counterText.text = Data.counter.ToString(); // カウンター名を表示
+        }
+        if(idNameText != null && Data != null)
+        {
+            idNameText.text = Data.idName.ToString();   // 書類ID名を表示
+        }
+        if(expiryDateText != null && Data != null)
+        {
+            expiryDateText.text = Data.expiryDate.ToString(); // 有効期限を表示
+        }
+        if(Data != null)
+        {
+            return;     // データが存在する場合は正常にUIを更新したとみなす
+        }
+    }
+
+    /// <summary>
+    /// ドキュメントがマウスでクリックされたときに呼ばれる
+    /// ドキュメントを最前面に表示する
+    /// </summary>
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        // ドキュメントを最前面に表示
+        rectTransform.SetAsLastSibling();
+
+        // ドキュメントの影をドラッグ中に表示
+        if(shadowRect != null)
+        {
+            shadowRect.anchoredPosition = originalShadowPos + shadowOffset; // 影をオフセット位置に移動して表示
+        }
     }
 
     /// <summary>
@@ -47,12 +112,12 @@ public class DocumentDraggable : MonoBehaviour, IBeginDragHandler, IEndDragHandl
     public void OnBeginDrag(PointerEventData eventData)
     {
         // デバッグ情報のログ出力
-        Debug.Log($"クリック位置: {eventData.position}");
-        Debug.Log($"カメラ: {canvas.worldCamera}");
-        Debug.Log($"親RectTransform: {parentRectTransform.name}");
-        Debug.Log($"クリックされたオブジェクト: {eventData.pointerCurrentRaycast.gameObject.name}");
-        Debug.Log($"書類のサイズ: {rectTransform.rect}");
-        Debug.Log($"書類の位置: {rectTransform.anchoredPosition}");
+        // Debug.Log($"クリック位置: {eventData.position}");
+        // Debug.Log($"カメラ: {canvas.worldCamera}");
+        // Debug.Log($"親RectTransform: {parentRectTransform.name}");
+        // Debug.Log($"クリックされたオブジェクト: {eventData.pointerCurrentRaycast.gameObject.name}");
+        // Debug.Log($"書類のサイズ: {rectTransform.rect}");
+        // Debug.Log($"書類の位置: {rectTransform.anchoredPosition}");
 
         // ドラッグ開始時の位置を保存（範囲外判定時に使用）
         prevPos = rectTransform.anchoredPosition;
@@ -103,6 +168,12 @@ public class DocumentDraggable : MonoBehaviour, IBeginDragHandler, IEndDragHandl
     /// </summary>
     public void OnEndDrag(PointerEventData eventData)
     {
+        // ドキュメントの影をドラッグ終了後に元の位置に戻す
+        if(shadowRect != null)
+        {
+            shadowRect.anchoredPosition = originalShadowPos; // 影を元の位置に戻す
+        }
+
         // ScreenSpaceOverlay時はカメラ不要（null）、それ以外はCanvasのカメラを使用
         Camera cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
 
